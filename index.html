@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myPay | Future of Payments</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800&family=Plus+Jakarta+Sans:wght@300;500;800&display=swap" rel="stylesheet">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <style>
+        :root { 
+            --accent: #00f2fe; 
+            --purple: #764ba2;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1); 
+            
+            /* Theme Variables */
+            --bg-body: #050517;
+            --text-main: white;
+            --nav-bg: rgba(5, 5, 23, 0.7);
+            --glow-opacity: 0.12;
+            --hero-gradient: linear-gradient(to bottom, #fff 40%, rgba(255,255,255,0.4));
+        }
+
+        /* Light Mode Refinement */
+        [data-theme="light"] {
+            --bg-body: #f8fafc;
+            --text-main: #0f172a;
+            --nav-bg: rgba(255, 255, 255, 0.8);
+            --glass: rgba(255, 255, 255, 0.8);
+            --border: rgba(0, 0, 0, 0.08);
+            --glow-opacity: 0.05;
+            --hero-gradient: linear-gradient(to bottom, #0f172a 40%, #64748b);
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--bg-body); 
+            color: var(--text-main); 
+            overflow-x: hidden;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- COOKIE POPUP UI (NETLIFY STYLE) --- */
+        .cookie-popup {
+            position: fixed;
+            bottom: 25px;
+            left: 25px;
+            width: 340px;
+            background: #111111;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 10000;
+            display: none; /* Controlled by JS */
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        }
+
+        [data-theme="light"] .cookie-popup {
+            background: #ffffff;
+            border-color: rgba(0,0,0,0.1);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .cookie-content { display: flex; gap: 12px; margin-bottom: 20px; }
+        .cookie-text { font-size: 13px; line-height: 1.5; color: var(--text-main); opacity: 0.9; }
+        .cookie-text a { color: var(--accent); text-decoration: underline; }
+        
+        .cookie-buttons { display: flex; gap: 10px; }
+        .btn-cookie { flex: 1; padding: 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; border: none; }
+        .btn-reject { background: #222; color: white; border: 1px solid rgba(255,255,255,0.1); }
+        .btn-accept { background: var(--accent); color: black; }
+        
+        [data-theme="light"] .btn-reject { background: #f1f1f1; color: black; border-color: #ddd; }
+        
+        .cookie-settings { display: block; text-align: left; margin-top: 12px; font-size: 11px; color: var(--accent); text-decoration: none; }
+
+        /* --- REST OF YOUR UI --- */
+        .bg-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 80% 20%, rgba(0, 242, 254, var(--glow-opacity)), transparent 40%),
+                        radial-gradient(circle at 20% 80%, rgba(118, 75, 162, var(--glow-opacity)), transparent 40%);
+            z-index: -1;
+        }
+
+        .navbar { 
+            padding: 20px 0;
+            background: var(--nav-bg); 
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .hero { padding: 180px 0 100px; }
+        h1 { 
+            font-family: 'Barlow Condensed', sans-serif; 
+            font-size: 6rem; 
+            line-height: 0.9;
+            letter-spacing: -2px;
+            text-transform: uppercase; 
+            background: var(--hero-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-main { 
+            background: var(--accent); 
+            color: #000; 
+            border-radius: 18px; 
+            padding: 18px 45px; 
+            font-weight: 800; 
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 242, 254, 0.3);
+            transition: 0.3s;
+        }
+        .btn-main:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0, 242, 254, 0.5); }
+
+        .purpose-card {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            padding: 45px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.2);
+            position: relative;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .purpose-tag {
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent);
+            border-left: 2px solid var(--accent);
+            padding-left: 10px;
+            margin-bottom: 20px;
+        }
+
+        .purpose-quote {
+            font-size: 1.4rem;
+            font-weight: 300;
+            line-height: 1.6;
+            color: var(--text-main);
+            font-style: italic;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+            padding: 6px 15px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            background: #4ade80;
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 8px #4ade80;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .small-feature {
+            background: rgba(128,128,128,0.05);
+            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid var(--border);
+        }
+
+        .modal-content { background: var(--bg-body); border-radius: 40px; border: 1px solid var(--accent); color: var(--text-main); }
+        .feature-box { background: var(--glass); padding: 30px; border-radius: 20px; border: 1px solid var(--border); height: 100%; }
+
+        .theme-toggle {
+            cursor: pointer;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--glass);
+            border: 1px solid var(--border);
+            margin-right: 15px;
+            font-size: 1.2rem;
+            transition: 0.3s;
+        }
+
+        @media (max-width: 768px) { h1 { font-size: 3.5rem; } }
+    </style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+
+<div id="cookiePopup" class="cookie-popup">
+    <div class="cookie-content">
+        <div style="font-size: 20px;">🍪</div>
+        <div class="cookie-text">
+            myPay use cookies to improve your browsing experience and for marketing purposes. 
+            <a href="#">Read our Privacy Policy</a>
+        </div>
+    </div>
+    <div class="cookie-buttons">
+        <button class="btn-cookie btn-reject" onclick="closeCookie()">Reject All</button>
+        <button class="btn-cookie btn-accept" onclick="acceptCookie()">Accept All</button>
+    </div>
+    <a href="#" class="cookie-settings" onclick="closeCookie()">Cookies Settings</a>
+</div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+        <a class="navbar-brand font-weight-bold" href="#" style="font-size: 1.5rem; color: var(--text-main);">myPay<span style="color:var(--accent)">.</span></a>
+        <div class="ml-auto d-flex align-items-center">
+            <div class="theme-toggle" onclick="toggleTheme()" id="themeIcon">🌙</div>
+            <button class="btn btn-outline-light rounded-pill px-4" style="color: var(--text-main); border-color: var(--border);" onclick="$('#loginModal').modal('show')">Sign In</button>
+        </div>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 text-left">
+                <span class="badge badge-pill mb-3 px-3 py-2" style="background: rgba(0,242,254,0.1); color: var(--accent);">My Payment, My Control</span>
+                <h1>Secure Your <br><span style="color:var(--accent)">Financial Future</span></h1>
+                <p class="lead opacity-70 mb-5" style="color: var(--text-main);">Make every payment smarter and safer with myPay, AI-driven fraud detection, instant settlements, and complete peace of mind.</p>
+                <button class="btn-main" onclick="$('#loginModal').modal('show')">Get Started Now...</button>
+            </div>
+            
+            <div class="col-lg-6 d-none d-lg-block">
+                <div class="purpose-card">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="status-pill">
+                            <div class="status-dot"></div> BUILT FOR SAFE PAYMENTS 
+                        </div>
+                        <span class="small opacity-30">ᴘᴏᴡᴇʀᴇᴅ ʙʏ 𝙍𝙪𝙋𝙖𝙮</span>
+                    </div>
+
+                    <div class="purpose-tag">myPay Purpose</div>
+                    <p class="purpose-quote">
+                        "Our mission is to detect fraud early and protect every UPI transaction with AI-driven intelligence."
+                    </p>
+
+                    <div class="row no-gutters mt-4">
+                        <div class="col-6 pr-2">
+                            <div class="small-feature">
+                                <div class="small font-weight-bold mb-1" style="color:var(--accent)">Unified Core</div>
+                                <div class="small opacity-50" style="font-size: 10px;">One ID for all global banking networks.</div>
+                            </div>
+                        </div>
+                        <div class="col-6 pl-2">
+                            <div class="small-feature">
+                                <div class="small font-weight-bold mb-1" style="color:var(--accent)">Neural Shield</div>
+                                <div class="small opacity-50" style="font-size: 10px;">Real-time threat analysis on every byte.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-top" style="border-color: var(--border) !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="small opacity-50">Global Node Status:</span>
+                            <span class="small font-weight-bold">Primary Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="pb-5">
+    <div class="container text-center mb-5">
+        <h2 class="font-weight-bold">Our Approach</h2>
+        <p class="opacity-50">Simple. Secure. Borderless.</p>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <h5 style="color: var(--accent);">Integrity</h5>
+                    <p class="small opacity-50">Instant bank-to-bank transfers with zero-fee processing and modern encryption.</p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <h5 style="color: var(--accent);">UPI Fraud Detect</h5>
+                    <p class="small opacity-50">The next generation payment ecosystem. Powered by AI, protected by deep-learning fraud detection, and controlled entirely by you.</p>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="feature-box">
+                    <h5 style="color: var(--accent);">Transparency</h5>
+                    <p class="small opacity-50">Real-time AI monitoring gives you full visibility into the safety and status of your financial world.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="loginModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content p-5">
+            <h3 class="text-center font-weight-bold mb-2">Authorize</h3>
+            <p class="text-center small opacity-50 mb-4">Secure Terminal Access</p>
+            
+            <div class="form-group mb-4">
+                <input class="form-control bg-dark text-white border-secondary py-4" id="loginEmail" placeholder="Enter Gmail Here" readonly>
+            </div>
+            
+            <div id="googleLoginBtn" class="d-flex justify-content-center mb-4"></div>
+            
+            <button class="btn btn-main btn-block" onclick="continueLogin()">Access Dashboard</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBac3YoqKFOS-gdsRylLdOfcqjLjKE5nN0",
+        authDomain: "mypay-429c8.firebaseapp.com",
+        projectId: "mypay-429c8",
+        storageBucket: "mypay-429c8.firebasestorage.app",
+        messagingSenderId: "1056662437664",
+        appId: "1:1056662437664:web:20bff46ea25a660186e145"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    /* --- COOKIE LOGIC --- */
+    window.onload = () => {
+        // Show cookie popup if not accepted
+        if(!localStorage.getItem("cookie_consent")) {
+            document.getElementById("cookiePopup").style.display = "block";
+        }
+        
+        // Existing Google Init
+        google.accounts.id.initialize({
+            client_id: "353521516695-1rnegcuai3ejv4gkc3fmfvclogcqjcbb.apps.googleusercontent.com",
+            callback: window.onGoogleLogin
+        });
+        google.accounts.id.renderButton(document.getElementById("googleLoginBtn"), { 
+            theme: "filled_blue", 
+            size: "large", 
+            shape: "pill",
+            width: "300"
+        });
+    };
+
+    window.acceptCookie = () => {
+        localStorage.setItem("cookie_consent", "true");
+        document.getElementById("cookiePopup").style.display = "none";
+    };
+
+    window.closeCookie = () => {
+        document.getElementById("cookiePopup").style.display = "none";
+    };
+
+    // --- THEME ENGINE ---
+    window.toggleTheme = () => {
+        const body = document.body;
+        const icon = document.getElementById("themeIcon");
+        if(body.getAttribute("data-theme") === "light") {
+            body.removeAttribute("data-theme");
+            icon.innerText = "🌙";
+            localStorage.setItem("theme", "dark");
+        } else {
+            body.setAttribute("data-theme", "light");
+            icon.innerText = "☀️";
+            localStorage.setItem("theme", "light");
+        }
+    };
+
+    // Auto load theme
+    if(localStorage.getItem("theme") === "light") {
+        document.body.setAttribute("data-theme", "light");
+        document.getElementById("themeIcon").innerText = "☀️";
+    }
+
+    async function onGoogleLogin(response) {
+        const data = JSON.parse(atob(response.credential.split(".")[1]));
+        const upiHandle = data.email.split('@')[0] + "@mypay";
+
+        document.getElementById("loginEmail").value = data.email;
+        
+        localStorage.setItem("mypay_email", data.email);
+        localStorage.setItem("mypay_name", data.name);
+        localStorage.setItem("mypay_upi", upiHandle);
+
+        try {
+            const userRef = doc(db, "users", upiHandle);
+            const docSnap = await getDoc(userRef);
+
+            if (!docSnap.exists()) {
+                await setDoc(userRef, {
+                    name: data.name,
+                    email: data.email,
+                    balance: 1000, 
+                    showPopup: false,
+                    lastAmount: 0,
+                    lastSender: "System",
+                    createdAt: new Date()
+                });
+                localStorage.setItem("mypay_balance", "1000");
+            } else {
+                localStorage.setItem("mypay_balance", docSnap.data().balance || 0);
+            }
+        } catch (error) {
+            console.error("Cloud Sync Error:", error);
+        }
+    }
+
+    window.onGoogleLogin = onGoogleLogin;
+
+    window.continueLogin = () => {
+        if (!localStorage.getItem("mypay_email")) {
+            alert("Please authenticate using the Google button first.");
+            return;
+        }
+        window.location.href = "dashboard.html";
+    };
+</script>
+</body>
+</html>

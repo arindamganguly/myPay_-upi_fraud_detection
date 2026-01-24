@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Detect | myPay</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <style>
+        :root { 
+            --primary: #00f2fe; --danger: #f87171; --success: #4ade80; --warning: #facc15; 
+            --body-bg: #050517; --text-color: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.03); --card-border: rgba(0, 242, 254, 0.2);
+            --input-bg: rgba(0,0,0,0.4); --input-text: #00f2fe;
+            --history-bg: rgba(0,0,0,0.3); --glass-blur: blur(20px);
+        }
+
+        [data-theme="light"] {
+            --body-bg: #f0f4f8; --text-color: #1e293b;
+            --card-bg: rgba(255, 255, 255, 0.9); --card-border: rgba(0, 242, 254, 0.4);
+            --input-bg: #e2e8f0; --input-text: #1e1b4b; --history-bg: #f8fafc;
+        }
+
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--body-bg); color: var(--text-color); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; transition: 0.3s; }
+
+        .back-nav { position: fixed; top: 25px; left: 25px; z-index: 100; }
+        .back-nav a { color: var(--text-color); text-decoration: none; font-weight: 700; font-size: 0.85rem; opacity: 0.6; display: flex; align-items: center; }
+
+        .terminal-card { 
+            background: var(--card-bg); border: 1px solid var(--card-border); 
+            border-radius: 30px; padding: 35px; width: 100%; max-width: 550px; 
+            backdrop-filter: var(--glass-blur); box-shadow: 0 20px 50px rgba(0,0,0,0.1); 
+        }
+
+        .btn-scan-qr {
+            background: rgba(0, 242, 254, 0.1); border: 1px solid var(--primary);
+            color: var(--primary); border-radius: 12px; padding: 12px; width: 100%;
+            font-weight: 800; font-size: 0.85rem; letter-spacing: 1px;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: 0.3s; margin-bottom: 15px; cursor: pointer;
+        }
+        .btn-scan-qr:hover { background: var(--primary); color: #000; }
+
+        .scan-input { 
+            background: var(--input-bg); border: 1px solid rgba(128,128,128,0.2); 
+            color: var(--input-text); font-family: monospace; font-size: 1.1rem; 
+            border-radius: 12px; padding: 15px; width: 100%; outline: none; transition: 0.3s; 
+        }
+
+        #reader { width: 100%; border-radius: 15px; overflow: hidden; margin-bottom: 15px; display: none; border: 1px solid var(--primary) !important; }
+
+        .loading-bar { height: 3px; width: 0%; background: var(--primary); box-shadow: 0 0 10px var(--primary); transition: width 0.4s; border-radius: 10px; }
+        .status-box { display: none; margin-top: 25px; border-top: 1px solid rgba(128,128,128,0.2); padding-top: 20px; animation: fadeIn 0.5s ease; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .risk-badge { padding: 4px 12px; border-radius: 100px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+        .bg-safe { background: rgba(74, 222, 128, 0.15); color: var(--success); }
+        .bg-hold { background: rgba(250, 204, 21, 0.15); color: var(--warning); }
+        
+        .history-card { 
+            background: var(--history-bg); padding: 15px; border-radius: 12px; 
+            font-size: 13px; border-left: 3px solid var(--primary); color: var(--text-color);
+        }
+
+        .theme-toggle { position: fixed; top: 20px; right: 20px; width: 45px; height: 45px; border-radius: 50%; background: var(--card-bg); border: 1px solid var(--card-border); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-color); z-index: 100; }
+    </style>
+</head>
+<body>
+
+<div class="back-nav"><a href="dashboard.html"><span class="mr-1">←</span> BACK TO HOME</a></div>
+<div class="theme-toggle" onclick="toggleTheme()" id="themeIcon">🌙</div>
+
+<div class="terminal-card">
+    <div class="mb-4 text-center">
+        <h4 class="font-weight-bold mb-1" style="color: var(--text-color)">UPI <span style="color:var(--primary)">Fraud </span> Detection</h4>
+        <p class="small opacity-50">Deep Scan: Email and Live Transaction Scanning</p>
+    </div>
+
+    <button class="btn-scan-qr" onclick="startQRScanner()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        SCAN QR CODE
+    </button>
+
+    <div id="reader"></div>
+
+    <input type="text" id="scanTarget" class="scan-input mb-3" placeholder="Enter UPI ID (e.g. rahul@mypay)">
+
+    <div class="loading-bar mb-4" id="progress"></div>
+    
+    <button class="btn btn-info btn-block py-3 font-weight-bold" id="scanBtn" onclick="runAnalysis()">SCAN & DETECT</button>
+
+    <div id="statusBox" class="status-box">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="small opacity-50">Account Email:</span>
+            <span id="emailResult" class="font-weight-bold" style="color: var(--primary)">Scanning...</span>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="small opacity-50">Node Status:</span>
+            <span id="riskResult" class="risk-badge">Tracing...</span>
+        </div>
+
+        <div class="row no-gutters mb-3">
+            <div class="col-6 pr-1">
+                <div class="p-2 rounded text-center" style="background: rgba(74, 222, 128, 0.05); border: 1px solid rgba(74, 222, 128, 0.1)">
+                    <div class="small opacity-50" style="font-size: 10px;">CREDITED (1 Hour)</div>
+                    <div id="creditResult" class="font-weight-bold text-success">₹0.00</div>
+                </div>
+            </div>
+            <div class="col-6 pl-1">
+                <div class="p-2 rounded text-center" style="background: rgba(248, 113, 113, 0.05); border: 1px solid rgba(248, 113, 113, 0.1)">
+                    <div class="small opacity-50" style="font-size: 10px;">DEBITED (1 Hour)</div>
+                    <div id="debitResult" class="font-weight-bold text-danger">₹0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 mb-2 small opacity-50 text-uppercase font-weight-bold" style="letter-spacing: 1px;">Transaction History</div>
+        <div id="historyResult" class="history-card mb-4">No data found in current trace.</div>
+        
+        <button class="btn btn-outline-secondary btn-block mt-4 btn-sm" style="color: var(--text-color)" onclick="location.reload()">New Scan</button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBac3YoqKFOS-gdsRylLdOfcqjLjKE5nN0",
+        authDomain: "mypay-429c8.firebaseapp.com",
+        projectId: "mypay-429c8",
+        storageBucket: "mypay-429c8.firebasestorage.app",
+        messagingSenderId: "1056662437664",
+        appId: "1:1056662437664:web:20bff46ea25a660186e145"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let html5QrCode;
+    window.startQRScanner = () => {
+        const reader = document.getElementById("reader");
+        reader.style.display = "block";
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+            let upi = text.includes("pa=") ? text.split("pa=")[1].split("&")[0] : text;
+            document.getElementById("scanTarget").value = upi;
+            html5QrCode.stop().then(() => { reader.style.display = "none"; });
+            window.runAnalysis();
+        }).catch(err => console.error(err));
+    };
+
+    window.toggleTheme = () => {
+        const body = document.body;
+        body.getAttribute("data-theme") === "light" ? body.removeAttribute("data-theme") : body.setAttribute("data-theme", "light");
+    };
+
+    window.runAnalysis = async () => {
+        const target = document.getElementById("scanTarget").value.trim().toLowerCase();
+        if(!target) return alert("Enter UPI ID");
+
+        const btn = document.getElementById("scanBtn");
+        const prog = document.getElementById("progress");
+        
+        btn.disabled = true;
+        btn.innerHTML = `TRACING NETWORK...`;
+        prog.style.width = "30%";
+
+        try {
+            // Logic 1: Replace Domain with Gmail
+            const formattedEmail = target.split('@')[0] + "@gmail.com";
+            
+            // Logic 2: Dual-Trace (Fetch last 10 txns for this user)
+            // Using only one 'where' to avoid Indexing errors
+            const q = query(
+                collection(db, "transactions"), 
+                where("participants", "array-contains", target),
+                orderBy("timestamp", "desc"),
+                limit(15) 
+            );
+            
+            prog.style.width = "70%";
+            const snap = await getDocs(q);
+            
+            let totalCredit = 0;
+            let totalDebit = 0;
+            let lastTxnHtml = "No recent activity detected in the trace.";
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+
+            if (!snap.empty) {
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const txTime = data.timestamp.toMillis();
+                    
+                    // Filter "Last 1 Hour" data locally
+                    if (txTime >= oneHourAgo) {
+                        if (data.receiver === target) totalCredit += data.amount;
+                        if (data.sender === target) totalDebit += data.amount;
+                    }
+                    
+                    // Show the very last transaction details
+                    if (doc.id === snap.docs[0].id) {
+                        lastTxnHtml = `
+                            <b>Last Txn:</b> ₹${data.amount.toFixed(2)}<br>
+                            <b>Flow:</b> ${data.sender === target ? 'OUTGOING' : 'INCOMING'}<br>
+                            <b>Time:</b> ${new Date(txTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        `;
+                    }
+                });
+            }
+
+            // UI Display
+            prog.style.width = "100%";
+            setTimeout(() => {
+                document.getElementById("statusBox").style.display = "block";
+                btn.style.display = "none";
+                document.getElementById("emailResult").innerText = formattedEmail;
+                document.getElementById("creditResult").innerText = `₹${totalCredit.toFixed(2)}`;
+                document.getElementById("debitResult").innerText = `₹${totalDebit.toFixed(2)}`;
+                document.getElementById("historyResult").innerHTML = lastTxnHtml;
+                
+                document.getElementById("riskResult").innerText = snap.empty ? "NEW NODE" : "VERIFIED";
+                document.getElementById("riskResult").className = `risk-badge ${snap.empty ? 'bg-hold' : 'bg-safe'}`;
+            }, 600);
+
+        } catch (e) {
+            console.error("Firebase Error: ", e);
+            alert("Trace Failed: Ensure your Firebase has a 'transactions' collection with 'participants' and 'timestamp' fields.");
+            btn.disabled = false;
+            btn.innerHTML = "RETRY SCAN";
+        }
+    };
+</script>
+</body>
+</html>

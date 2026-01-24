@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>myPay | Fraud Verification Terminal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #00f2fe;
+            --success: #4ade80;
+            --danger: #f87171;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #050517;
+            color: white;
+            min-height: 100vh;
+            padding: 40px 0;
+        }
+
+        .terminal-card {
+            background: rgba(15, 12, 41, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 0 50px rgba(0, 242, 254, 0.1);
+        }
+
+        .form-control {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white !important;
+            border-radius: 12px;
+            padding: 25px 15px;
+        }
+
+        .form-control:focus {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--primary);
+            box-shadow: none;
+        }
+
+        .balance-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 15px;
+            border: 1px dashed rgba(255,255,255,0.2);
+        }
+
+        .btn-verify {
+            background: var(--primary);
+            color: black;
+            font-weight: 800;
+            border-radius: 15px;
+            padding: 15px;
+            border: none;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Result Overlay */
+        #resultArea {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .scan-line {
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            animation: moveScan 2s linear infinite;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        @keyframes moveScan {
+            from { top: 0; }
+            to { top: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="terminal-card position-relative overflow-hidden">
+                <div id="scanLine" class="scan-line"></div>
+                
+                <h3 class="text-center font-weight-bold mb-4">Verification Terminal</h3>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="small opacity-50">Transaction ID</label>
+                        <input type="text" id="txId" class="form-control mb-3" placeholder="TXN987654321">
+                        
+                        <label class="small opacity-50">Amount (₹)</label>
+                        <input type="number" id="txAmount" class="form-control mb-3" placeholder="0.00">
+                        
+                        <label class="small opacity-50">Seller Account</label>
+                        <input type="text" id="sellerAcc" class="form-control mb-3" placeholder="VPA / Account No">
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="balance-box mb-3">
+                            <label class="small text-info">Receiver Old Balance</label>
+                            <input type="number" id="oldRecBal" class="form-control form-control-sm" placeholder="₹">
+                        </div>
+                        <div class="balance-box mb-3">
+                            <label class="small text-info">Receiver Current Balance</label>
+                            <input type="number" id="currRecBal" class="form-control form-control-sm" placeholder="₹">
+                        </div>
+                        <div class="balance-box">
+                            <label class="small text-warning">Seller Current Balance</label>
+                            <input type="number" id="currSelBal" class="form-control form-control-sm" placeholder="₹">
+                        </div>
+                    </div>
+                </div>
+
+                <hr style="background: rgba(255,255,255,0.1);">
+                
+                <button class="btn-verify mt-2" onclick="startDetection()">Fraud Detection</button>
+
+                <div id="resultArea"></div>
+                
+                <div class="text-center mt-4">
+                    <a href="dashboard.html" class="text-white-50 small">← Back to Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function startDetection() {
+        const amt = parseFloat(document.getElementById('txAmount').value);
+        const oldB = parseFloat(document.getElementById('oldRecBal').value);
+        const newB = parseFloat(document.getElementById('currRecBal').value);
+        const result = document.getElementById('resultArea');
+        const scanner = document.getElementById('scanLine');
+
+        if (!amt || isNaN(oldB) || isNaN(newB)) {
+            alert("Please enter all numerical values for audit.");
+            return;
+        }
+
+        // Show scanning animation
+        scanner.style.display = "block";
+        result.style.display = "block";
+        result.style.background = "rgba(255,255,255,0.1)";
+        result.style.color = "white";
+        result.innerText = "Analyzing Math & Account Signatures...";
+
+        setTimeout(() => {
+            scanner.style.display = "none";
+            
+            // Logic: If (New Balance - Old Balance) == Transaction Amount -> Success
+            const difference = newB - oldB;
+
+            if (difference === amt) {
+                result.style.background = "rgba(74, 222, 128, 0.2)";
+                result.style.color = "#4ade80";
+                result.innerHTML = `
+                    <div class="h5 mb-1">✓ NO FRAUD DETECTED</div>
+                    <div class="small">Balance difference matches Transaction Amount (₹${amt}).</div>
+                `;
+            } else {
+                result.style.background = "rgba(248, 113, 113, 0.2)";
+                result.style.color = "#f87171";
+                result.innerHTML = `
+                    <div class="h5 mb-1">⚠️ FRAUD ALERT DETECTED</div>
+                    <div class="small">Mismatch: Expected ₹${amt} increase, but found ₹${difference}.</div>
+                `;
+            }
+        }, 2500);
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Money | Conformation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root { 
+            --primary: #00f2fe; 
+            --accent: #4facfe; 
+            --success: #4ade80; 
+            /* Theme Variables */
+            --body-bg: radial-gradient(circle at top right, #1e1b4b, #0f0c29);
+            --text-color: #ffffff;
+            --glass: rgba(255, 255, 255, 0.06);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --input-bg: rgba(255, 255, 255, 0.05);
+            --shield-bg: rgba(0, 0, 0, 0.3);
+        }
+
+        /* EXACT Light Mode Transition */
+        [data-theme="light"] {
+            --body-bg: radial-gradient(circle at top right, #e0e7ff, #f8fafc);
+            --text-color: #1e293b;
+            --glass: rgba(255, 255, 255, 0.8);
+            --glass-border: rgba(0, 0, 0, 0.05);
+            --input-bg: #f1f5f9;
+            --shield-bg: rgba(0, 242, 254, 0.05);
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--body-bg); 
+            color: var(--text-color); 
+            display: flex; align-items: center; justify-content: center; 
+            min-height: 100vh; margin: 0; overflow: hidden; 
+            transition: background 0.3s ease;
+        }
+
+        .send-card { 
+            background: var(--glass); 
+            backdrop-filter: blur(25px); 
+            border: 1px solid var(--glass-border); 
+            border-radius: 28px; padding: 30px; 
+            width: 100%; max-width: 420px; position: relative; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        #qr-reader-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+        #qr-reader { width: 280px; border: 2px solid var(--primary) !important; border-radius: 20px; overflow: hidden; }
+        
+        .form-control { 
+            background: var(--input-bg); 
+            border: 1px solid var(--glass-border); 
+            color: var(--text-color); 
+            border-radius: 14px; padding: 25px; font-weight: 600; 
+        }
+        .form-control:focus { background: var(--input-bg); color: var(--text-color); border-color: var(--primary); outline: none; box-shadow: none; }
+
+        .risk-shield-panel { 
+            background: var(--shield-bg); 
+            border: 1px dashed var(--primary); 
+            border-radius: 20px; padding: 20px; 
+            display: none; animation: fadeIn 0.4s ease; 
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .btn-glow { 
+            background: linear-gradient(45deg, var(--primary), var(--accent)); 
+            border: none; color: #000 !important; font-weight: 800; 
+            border-radius: 14px; padding: 15px; transition: 0.3s; 
+        }
+        .btn-glow:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(0, 242, 254, 0.4); }
+        
+        .security-badge { font-size: 11px; padding: 4px 10px; border-radius: 6px; background: rgba(0, 242, 254, 0.1); border: 1px solid var(--primary); color: var(--primary); margin-bottom: 10px; display: inline-block; }
+
+        .theme-toggle { position: fixed; top: 20px; right: 20px; width: 45px; height: 45px; border-radius: 50%; background: var(--glass); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-color); }
+    </style>
+</head>
+<body>
+
+<div class="theme-toggle" onclick="toggleTheme()" id="themeIcon">🌙</div>
+
+<div id="qr-reader-container">
+    <div id="qr-reader" class="mb-4"></div>
+    <button class="btn btn-outline-light rounded-pill px-4" onclick="stopScanner()">Cancel Scan</button>
+</div>
+
+<div class="send-card">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h5 class="font-weight-bold mb-0">Transfer Money</h5>
+        <div id="balView" class="small font-weight-bold text-primary">₹0.00</div>
+    </div>
+
+    <div id="step1">
+        <div class="form-group">
+            <div class="d-flex justify-content-between mb-2">
+                <label class="small opacity-50 font-weight-bold">RECEIVER UPI</label>
+                <a href="#" class="small text-primary font-weight-bold" onclick="startScanner()">SCAN QR</a>
+            </div>
+            <input type="text" id="targetUpi" class="form-control" placeholder="username@mypay">
+        </div>
+        <div class="form-group">
+            <label class="small opacity-50 font-weight-bold">AMOUNT</label>
+            <input type="number" id="targetAmount" class="form-control" placeholder="0.00">
+        </div>
+        <button class="btn btn-glow btn-block mt-4" id="verifyBtn">Verify Security</button>
+        <button class="btn btn-link btn-block mt-2 small" style="color: var(--text-color); opacity: 0.5" onclick="location.href='dashboard.html'">Back</button>
+    </div>
+
+    <div id="step2" class="risk-shield-panel">
+        <div class="small text-primary font-weight-bold mb-3">PROTECTED</div>
+        <div id="securityStats"></div>
+        <div class="d-flex justify-content-between small mb-2"><span>Voice Detection</span><span class="text-success">Safe</span></div>
+        <div class="d-flex justify-content-between small mb-3"><span>Pattern Match</span><span class="text-success">Verified</span></div>
+        <button class="btn btn-success btn-block font-weight-bold py-3" id="confirmBtn" style="border-radius: 14px">Confirm Transfer</button>
+        <button class="btn btn-link btn-block text-danger mt-2 small" onclick="location.reload()">Cancel</button>
+    </div>
+</div>
+
+<script type="module">
+    // --- THEME ENGINE ---
+    window.toggleTheme = () => {
+        const body = document.body;
+        const icon = document.getElementById("themeIcon");
+        if(body.getAttribute("data-theme") === "light") {
+            body.removeAttribute("data-theme");
+            icon.innerText = "🌙";
+            localStorage.setItem("theme", "dark");
+        } else {
+            body.setAttribute("data-theme", "light");
+            icon.innerText = "☀️";
+            localStorage.setItem("theme", "light");
+        }
+    };
+    if(localStorage.getItem("theme") === "light") {
+        document.body.setAttribute("data-theme", "light");
+        document.getElementById("themeIcon").innerText = "☀️";
+    }
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, where, orderBy, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBac3YoqKFOS-gdsRylLdOfcqjLjKE5nN0",
+        authDomain: "mypay-429c8.firebaseapp.com",
+        projectId: "mypay-429c8",
+        storageBucket: "mypay-429c8.firebasestorage.app",
+        messagingSenderId: "1056662437664",
+        appId: "1:1056662437664:web:20bff46ea25a660186e145"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const myUpiID = localStorage.getItem("mypay_upi");
+
+    async function loadBal() {
+        if(!myUpiID) return;
+        const docRef = doc(db, "users", myUpiID);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const balance = docSnap.data().balance || 0;
+            document.getElementById("balView").innerText = "₹" + balance.toLocaleString('en-IN', {minimumFractionDigits: 2});
+        }
+    }
+    loadBal();
+
+    window.verifySecurity = async () => {
+        const amt = parseFloat(document.getElementById("targetAmount").value);
+        const targetUpi = document.getElementById("targetUpi").value.trim();
+
+        if(!targetUpi || !amt || amt <= 0) return alert("Enter valid UPI and Amount");
+        if (targetUpi === myUpiID) return alert("Cannot send to yourself");
+
+        const verifyBtn = document.getElementById("verifyBtn");
+        verifyBtn.innerText = "Scanning UPI ID...";
+        verifyBtn.disabled = true;
+
+        try {
+            const userSnap = await getDoc(doc(db, "users", targetUpi));
+            if (!userSnap.exists()) {
+                alert("❌ UPI Not Found: Invalid recipient ID.");
+                verifyBtn.innerText = "Verify Security";
+                verifyBtn.disabled = false;
+                return;
+            }
+
+            const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+            const q = query(
+                collection(db, "transactions"),
+                where("sender", "==", myUpiID),
+                where("timestamp", ">=", Timestamp.fromDate(oneHourAgo)),
+                orderBy("timestamp", "desc") 
+            );
+            
+            const txnSnap = await getDocs(q);
+            const hourlyCount = txnSnap.size;
+
+            let trustScore = 98.4;
+            let statusText = "Safe";
+            let color = "text-success";
+
+            if (hourlyCount >= 2) { trustScore = 71.5; statusText = "Caution"; color = "text-warning"; }
+            if (hourlyCount >= 5) { trustScore = 28.2; statusText = "High Risk"; color = "text-danger"; }
+
+            document.getElementById("securityStats").innerHTML = `
+                <div class="security-badge">Verified: ${targetUpi}</div>
+                <div class="d-flex justify-content-between small mb-2">
+                    <span>Recent Activity (1hr)</span>
+                    <span class="font-weight-bold">${hourlyCount} Done</span>
+                </div>
+                <div class="d-flex justify-content-between small mb-2">
+                    <span>Trust Risk Score</span>
+                    <span class="${color} font-weight-bold">${trustScore}%</span>
+                </div>
+            `;
+
+            document.getElementById("step1").style.display = "none";
+            document.getElementById("step2").style.display = "block";
+
+        } catch (e) {
+            console.error(e);
+            alert("Security Error: " + e.message);
+        } finally {
+            verifyBtn.innerText = "Verify Security";
+            verifyBtn.disabled = false;
+        }
+    };
+
+    window.finalizeTransfer = async () => {
+        const amt = parseFloat(document.getElementById("targetAmount").value);
+        const targetUpi = document.getElementById("targetUpi").value.trim();
+        const myRef = doc(db, "users", myUpiID);
+        const friendRef = doc(db, "users", targetUpi);
+
+        try {
+            const mySnap = await getDoc(myRef);
+            if (mySnap.data().balance < amt) return alert("Insufficient balance!");
+
+            await addDoc(collection(db, "transactions"), {
+                sender: myUpiID,
+                receiver: targetUpi,
+                amount: amt,
+                timestamp: serverTimestamp(),
+                participants: [myUpiID, targetUpi],
+                status: "SUCCESS"
+            });
+
+            await updateDoc(myRef, { balance: increment(-amt) });
+            await updateDoc(friendRef, { 
+                balance: increment(amt),
+                showPopup: true,
+                lastAmount: amt,
+                lastSender: myUpiID
+            });
+
+            alert("Transfer Successful!");
+            window.location.href = "dashboard.html";
+        } catch (e) {
+            alert("Transfer Failed: " + e.message);
+        }
+    };
+
+    document.getElementById("verifyBtn").onclick = window.verifySecurity;
+    document.getElementById("confirmBtn").onclick = window.finalizeTransfer;
+</script>
+
+<script>
+    let scanner;
+    async function startScanner() {
+        document.getElementById("qr-reader-container").style.display = "flex";
+        scanner = new Html5Qrcode("qr-reader");
+        await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (res) => {
+            if(res.includes("pa=")) {
+                const urlParams = new URLSearchParams(res.split('?')[1]);
+                document.getElementById("targetUpi").value = urlParams.get('pa');
+            } else {
+                document.getElementById("targetUpi").value = res;
+            }
+            stopScanner();
+        });
+    }
+    function stopScanner() { 
+        if(scanner) scanner.stop().then(() => document.getElementById("qr-reader-container").style.display = "none"); 
+    }
+</script>
+</body>
+</html>
