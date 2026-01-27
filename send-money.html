@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Send Money | Confirmation</title>
+    <title>myPay Shield | Universal UPI Gateway</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
     <script src="https://unpkg.com/html5-qrcode"></script>
@@ -26,6 +26,13 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--body-bg); color: var(--text-color); display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; overflow: hidden; transition: background 0.3s ease; }
         .send-card { background: var(--glass); backdrop-filter: blur(25px); border: 1px solid var(--glass-border); border-radius: 28px; padding: 30px; width: 100%; max-width: 420px; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
         
+        /* Call Shield Overlay */
+        #hardwareBlock {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 12, 41, 0.98); z-index: 5000; border-radius: 28px;
+            flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px;
+        }
+
         .fraud-border { border: 2px solid var(--danger) !important; animation: pulse-red 2s infinite; }
         @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(248, 113, 113, 0); } 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); } }
         
@@ -59,9 +66,15 @@
 </div>
 
 <div class="send-card" id="mainCard">
+    <div id="hardwareBlock">
+        <h3 class="text-danger font-weight-bold">🛡️ CALL SHIELD BLOCKED</h3>
+        <p class="small mt-3">Active call detected. Scam Prevention active. <br><b>Hand-off to UPI disabled.</b></p>
+        <button class="btn btn-outline-primary btn-sm mt-3" onclick="location.reload()">Retry</button>
+    </div>
+
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h5 class="font-weight-bold mb-0">Transfer Money</h5>
-        <div id="balView" class="small font-weight-bold text-primary">₹0.00</div>
+        <h5 class="font-weight-bold mb-0">myPay Shield</h5>
+        <div id="balView" class="small font-weight-bold text-primary">₹500.00</div>
     </div>
 
     <div id="step1">
@@ -77,7 +90,8 @@
             <input type="number" id="targetAmount" class="form-control" placeholder="0.00">
         </div>
         <button class="btn btn-glow mt-4" id="verifyBtn">Verify Security</button>
-        <button class="btn btn-link btn-block mt-2 small" style="color: var(--text-color); opacity: 0.5" onclick="location.href='dashboard.html'">Back to Dashboard</button>
+        <button class="btn btn-link btn-block text-danger mt-2 small" onclick="reportAsScam()">Report this UPI as Scam</button>
+        <button class="btn btn-link btn-block mt-1 small" style="color: var(--text-color); opacity: 0.5" onclick="location.href='dashboard.html'">Back to Dashboard</button>
     </div>
 
     <div id="step2" class="risk-shield-panel">
@@ -92,11 +106,11 @@
             </div>
         </div>
 
-        <div class="d-flex justify-content-between small mb-2"><span>Voice Detection</span><span id="voiceStatus" class="text-success">Safe</span></div>
-        <div class="d-flex justify-content-between small mb-3"><span>Pattern Match</span><span id="patternStatus" class="text-success">Verified</span></div>
+        <div class="d-flex justify-content-between small mb-2"><span>Call State Detection</span><span id="voiceStatus" class="text-success">Safe</span></div>
+        <div class="d-flex justify-content-between small mb-3"><span>Community Shield</span><span id="patternStatus" class="text-success">Verified</span></div>
         
         <div id="actionBtnArea">
-            <button class="btn btn-success btn-block font-weight-bold py-3" id="confirmBtn" style="border-radius: 14px">Confirm Transfer</button>
+            <button class="btn btn-success btn-block font-weight-bold py-3" id="confirmBtn" style="border-radius: 14px">Confirm & Pay via UPI</button>
         </div>
         <button class="btn btn-link btn-block text-danger mt-2 small" onclick="location.reload()">Cancel</button>
     </div>
@@ -104,7 +118,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = { 
         apiKey: "AIzaSyBac3YoqKFOS-gdsRylLdOfcqjLjKE5nN0", 
@@ -117,119 +131,93 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const myUpiID = localStorage.getItem("mypay_upi");
-
     let captchaResult = 0;
 
-    // Theme Logic
-    window.toggleTheme = () => {
-        const b = document.body;
-        const icon = document.getElementById("themeIcon");
-        if(b.getAttribute("data-theme") === "light") {
-            b.removeAttribute("data-theme");
-            icon.innerText = "🌙";
-        } else {
-            b.setAttribute("data-theme", "light");
-            icon.innerText = "☀️";
+    // Call Detection (Mic hardware check)
+    async function checkCallStatus() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => track.stop());
+            return false;
+        } catch (err) {
+            return true; 
+        }
+    }
+
+    // Community Report Logic
+    window.reportAsScam = async () => {
+        const upi = document.getElementById("targetUpi").value.trim().toLowerCase();
+        if(!upi) return alert("Please enter a UPI ID first.");
+
+        if(confirm(`Report ${upi} to the global blacklist?`)) {
+            try {
+                const scamRef = doc(db, "blacklist", upi);
+                await setDoc(scamRef, { 
+                    reports: increment(1), 
+                    status: "flagged",
+                    last_report: new Date() 
+                }, { merge: true });
+                alert("🛡️ Reported! This ID is now on the Global Watchlist.");
+            } catch (e) { alert("Error: " + e.message); }
         }
     };
 
-    function runCaptcha() {
-        const n1 = Math.floor(Math.random() * 10) + 1;
-        const n2 = Math.floor(Math.random() * 10) + 1;
-        const op = Math.random() > 0.5 ? '+' : '-';
-        captchaResult = op === '+' ? n1 + n2 : n1 - n2;
-        document.getElementById("mathEq").innerText = `${n1} ${op} ${n2} =`;
-        document.getElementById("captchaAns").value = "";
-    }
-
     window.verifySecurity = async () => {
+        // Step 1: Detect Ongoing Call
+        if(await checkCallStatus()) {
+            document.getElementById("hardwareBlock").style.display = "flex";
+            return;
+        }
+
         const amt = parseFloat(document.getElementById("targetAmount").value);
         const targetUpi = document.getElementById("targetUpi").value.trim().toLowerCase();
         
-        if(!targetUpi || !amt || amt <= 0) return alert("Please enter a valid UPI and amount.");
-        if(targetUpi === myUpiID) return alert("You cannot send money to yourself.");
+        if(!targetUpi || !amt || amt <= 0) return alert("Enter valid UPI and amount.");
 
-        const isFraud = (targetUpi === "arnobdey@mypay");
-        
         try {
-            if(isFraud) {
+            // Step 2: Check Community Blacklist
+            const blacklistSnap = await getDoc(doc(db, "blacklist", targetUpi));
+            const reportCount = blacklistSnap.exists() ? (blacklistSnap.data().reports || 0) : 0;
+            
+            if(reportCount > 1 || targetUpi === "arnobdey@mypay") {
                 document.getElementById("mainCard").classList.add("fraud-border");
-                document.getElementById("riskTitle").innerText = "SECURITY ALERT";
-                document.getElementById("riskTitle").className = "small text-danger font-weight-bold mb-3";
-                document.getElementById("voiceStatus").innerText = "High Risk";
-                document.getElementById("voiceStatus").className = "text-danger";
-                document.getElementById("patternStatus").innerText = "Unverified";
-                document.getElementById("patternStatus").className = "text-danger";
-                document.getElementById("securityStats").innerHTML = `<div class="security-badge badge-danger">FRAUD BLACKLISTED</div>`;
-                document.getElementById("actionBtnArea").innerHTML = `<button class="btn btn-danger btn-block py-3 font-weight-bold" onclick="alert('This account is flagged. Transaction blocked for your safety.')">BLOCK TRANSACTION</button>`;
+                document.getElementById("riskTitle").innerText = "SUSPICIOUS NATURE DETECTED";
+                document.getElementById("securityStats").innerHTML = `<div class="security-badge badge-danger">REPORTED BY ${reportCount} USERS</div>`;
+                document.getElementById("actionBtnArea").innerHTML = `<button class="btn btn-danger btn-block py-3 font-weight-bold" onclick="alert('Transaction Blocked: Reported Scammer.')">BLOCK TRANSACTION</button>`;
             } else {
-                const userSnap = await getDoc(doc(db, "users", targetUpi));
-                if (!userSnap.exists()) return alert("UPI ID not found.");
-                
-                document.getElementById("securityStats").innerHTML = `<div class="security-badge">Verified Recipient</div>`;
+                document.getElementById("securityStats").innerHTML = `<div class="security-badge">Nature: Safe</div>`;
                 document.getElementById("captchaRow").style.display = "block";
                 runCaptcha();
             }
             document.getElementById("step1").style.display = "none";
             document.getElementById("step2").style.display = "block";
-        } catch (e) { alert("Verification failed: " + e.message); }
+        } catch (e) { alert("Security failed: " + e.message); }
     };
 
-    window.finalizeTransfer = async () => {
-        const targetUpi = document.getElementById("targetUpi").value.trim().toLowerCase();
-        const amt = parseFloat(document.getElementById("targetAmount").value);
-        
+    window.finalizeTransfer = () => {
         const ans = parseInt(document.getElementById("captchaAns").value);
-        if(ans !== captchaResult) {
-            document.getElementById("captchaRow").classList.add("shake");
-            setTimeout(() => document.getElementById("captchaRow").classList.remove("shake"), 400);
-            runCaptcha();
-            return;
-        }
+        if(ans !== captchaResult) { runCaptcha(); return alert("Math verification failed."); }
+        
+        const upi = document.getElementById("targetUpi").value;
+        const amt = document.getElementById("targetAmount").value;
+        window.location.href = `upi://pay?pa=${upi}&am=${amt}&cu=INR&tn=myPay_Verified`;
+    };
 
-        const myRef = doc(db, "users", myUpiID);
-        const friendRef = doc(db, "users", targetUpi);
+    function runCaptcha() {
+        const n1 = Math.floor(Math.random() * 10) + 1;
+        const n2 = Math.floor(Math.random() * 10) + 1;
+        captchaResult = n1 + n2;
+        document.getElementById("mathEq").innerText = `${n1} + ${n2} =`;
+    }
 
-        try {
-            const mySnap = await getDoc(myRef);
-            if (mySnap.data().balance < amt) return alert("Insufficient balance!");
-
-            // 1. Record Transaction (The 'participants' array fixes the Dashboard list)
-            await addDoc(collection(db, "transactions"), { 
-                sender: myUpiID, 
-                receiver: targetUpi, 
-                amount: amt, 
-                timestamp: serverTimestamp(), 
-                status: "SUCCESS",
-                participants: [myUpiID, targetUpi] 
-            });
-
-            // 2. Update Sender Balance
-            await updateDoc(myRef, { balance: increment(-amt) });
-
-            // 3. Update Receiver Balance and Trigger Popup
-            await updateDoc(friendRef, { 
-                balance: increment(amt), 
-                showPopup: true, 
-                lastAmount: amt, 
-                lastSender: myUpiID 
-            });
-
-            alert("Payment of ₹" + amt + " sent successfully!");
-            window.location.href = "dashboard.html";
-        } catch (e) { alert("Transaction error: " + e.message); }
+    window.toggleTheme = () => {
+        const b = document.body;
+        if(b.getAttribute("data-theme") === "light") b.removeAttribute("data-theme");
+        else b.setAttribute("data-theme", "light");
     };
 
     document.getElementById("verifyBtn").onclick = window.verifySecurity;
     document.getElementById("confirmBtn").onclick = window.finalizeTransfer;
-
-    async function loadBal() {
-        if(!myUpiID) return;
-        const s = await getDoc(doc(db, "users", myUpiID));
-        if(s.exists()) document.getElementById("balView").innerText = "₹" + s.data().balance.toLocaleString('en-IN', {minimumFractionDigits: 2});
-    }
-    loadBal();
 </script>
 
 <script>
@@ -237,29 +225,13 @@
     async function startScanner() {
         document.getElementById("qr-reader-container").style.display = "flex";
         scanner = new Html5Qrcode("qr-reader");
-        try {
-            await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (res) => {
-                // Extract UPI from UPI QR or plain text
-                let upi = res;
-                if(res.includes("pa=")) {
-                    const urlParams = new URLSearchParams(res.split('?')[1]);
-                    upi = urlParams.get('pa');
-                }
-                document.getElementById("targetUpi").value = upi;
-                stopScanner();
-            });
-        } catch (err) {
-            alert("Camera error: " + err);
+        scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (res) => {
+            const upi = res.includes("pa=") ? new URLSearchParams(res.split('?')[1]).get('pa') : res;
+            document.getElementById("targetUpi").value = upi;
             stopScanner();
-        }
+        });
     }
-    function stopScanner() { 
-        if(scanner) {
-            scanner.stop().then(() => {
-                document.getElementById("qr-reader-container").style.display = "none";
-            });
-        }
-    }
+    function stopScanner() { if(scanner) scanner.stop().then(() => document.getElementById("qr-reader-container").style.display = "none"); }
 </script>
 </body>
 </html>
