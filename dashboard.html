@@ -48,7 +48,6 @@
         
         .theme-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--glass); border: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); font-size: 1.2rem; margin-right: 15px; }
 
-        /* Notification Popup Styles */
         #notifyPopup { 
             display: none; 
             position: fixed; 
@@ -203,7 +202,6 @@
         }
     });
 
-    // --- REAL-TIME TRANSACTION LISTENER ---
     const q = query(
         collection(db, "transactions"), 
         where("participants", "array-contains", myUpiID), 
@@ -251,7 +249,6 @@
         list.appendChild(item);
     }
 
-    // --- IMPROVED DYNAMIC POPUP FUNCTION ---
     function triggerPopup(amt, sender) {
         const popup = document.getElementById("notifyPopup");
         const notifyText = document.getElementById("notifyText");
